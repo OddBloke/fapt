@@ -62,7 +62,7 @@ version = "1"
 
 [dependencies.reqwest]
 features = ["blocking"]
-version = "0.10"
+version = "0.11"
 
 [dependencies.jemallocator]
 optional = true
