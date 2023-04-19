@@ -31,8 +31,6 @@ impl Download {
 }
 
 pub async fn fetch(client: reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
-    // TODO: reqwest parallel API, when it's stable
-
     let mut set = JoinSet::new();
     for download in downloads {
         writeln!(io::stderr(), "Downloading: {}", download.from)?;
