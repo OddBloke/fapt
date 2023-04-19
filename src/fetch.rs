@@ -1,5 +1,6 @@
 use std::fs;
 use std::io;
+use std::io::Cursor;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -92,8 +93,8 @@ async fn fetch_single(client: reqwest::Client, download: Download) -> Result<(),
         None
     };
 
-    io::copy(&mut resp.text().await?.as_bytes(), &mut tmp)
-        .with_context(|| anyhow!("copying data"))?;
+    let mut content = Cursor::new(resp.bytes().await?);
+    io::copy(&mut content, &mut tmp).with_context(|| anyhow!("copying data"))?;
 
     tmp.persist_by_rename(&download.to)
         .map_err(|e| e.error)
