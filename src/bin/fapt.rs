@@ -13,7 +13,8 @@ use fapt::commands;
 use fapt::sources_list;
 use fapt::system::System;
 
-fn main() -> Result<(), anyhow::Error> {
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
     let matches = command!()
         .subcommand_required(true)
         .arg(
@@ -134,7 +135,7 @@ fn main() -> Result<(), anyhow::Error> {
             commands::source_ninja(&system)?;
         }
         Some(("update", _)) => {
-            system.update()?;
+            system.update().await?;
         }
         _ => unreachable!(),
     }
