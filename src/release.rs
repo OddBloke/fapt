@@ -154,7 +154,7 @@ impl RequestedReleases {
         })
     }
 
-    pub fn download<P: AsRef<Path>>(
+    pub async fn download<P: AsRef<Path>>(
         &self,
         lists_dir: P,
         keyring: &Keyring,
@@ -163,18 +163,27 @@ impl RequestedReleases {
         let lists_dir = lists_dir.as_ref();
 
         let mut gpg = GpgClient::new(keyring);
+        let mut handles = Vec::with_capacity(self.releases.len());
 
         for &(ref release, _) in &self.releases {
             let dest: PathBuf = release.download_path(lists_dir);
-            let verified = release.verified_path(lists_dir);
 
-            match fetch(
-                client,
-                &[Download::from_to(
-                    release.dists()?.join("InRelease")?,
-                    &dest,
-                )],
-            ) {
+            handles.push((
+                release,
+                dest.clone(),
+                fetch(
+                    client,
+                    vec![Download::from_to(
+                        release.dists()?.join("InRelease")?,
+                        &dest,
+                    )],
+                ),
+            ));
+        }
+
+        for (release, dest, handle) in handles {
+            let verified = release.verified_path(lists_dir);
+            match handle.await {
                 Ok(_) => gpg.read_clearsigned(&dest, &verified, !release.untrusted),
                 Err(_) => {
                     let mut detatched_signature = dest.as_os_str().to_os_string();
@@ -182,17 +191,19 @@ impl RequestedReleases {
 
                     fetch(
                         client,
-                        &[Download::from_to(release.dists()?.join("Release")?, &dest)],
-                    )?;
+                        vec![Download::from_to(release.dists()?.join("Release")?, &dest)],
+                    )
+                    .await?;
 
                     if !release.untrusted {
                         fetch(
                             client,
-                            &[Download::from_to(
+                            vec![Download::from_to(
                                 release.dists()?.join("Release.gpg")?,
                                 &detatched_signature,
                             )],
-                        )?;
+                        )
+                        .await?;
                         gpg.verify_detached(&dest, detatched_signature, verified)
                     } else {
                         Ok(())

@@ -29,25 +29,29 @@ impl Download {
     }
 }
 
-pub async fn fetch(client: &reqwest::Client, downloads: &[Download]) -> Result<(), Error> {
+pub async fn fetch(client: &reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
     // TODO: reqwest parallel API, when it's stable
 
     let mut handles = Vec::with_capacity(downloads.len());
     for download in downloads {
-        write!(io::stderr(), "Downloading: {} ... ", download.from)?;
+        writeln!(io::stderr(), "Downloading: {}", download.from)?;
         io::stderr().flush()?;
-        handles.push((download, fetch_single(client, download)));
+        handles.push((
+            download.from.clone(),
+            download.to.clone(),
+            fetch_single(client, download),
+        ));
     }
 
-    for (download, handle) in handles {
+    for (from, to, handle) in handles {
         handle
             .await
-            .with_context(|| anyhow!("downloading {} to {:?}", download.from, download.to))?;
+            .with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
     }
     Ok(())
 }
 
-async fn fetch_single(client: &reqwest::Client, download: &Download) -> Result<(), Error> {
+async fn fetch_single(client: &reqwest::Client, download: Download) -> Result<(), Error> {
     let mut req = client.get(download.from.as_ref());
 
     if download.to.exists() {
@@ -62,7 +66,7 @@ async fn fetch_single(client: &reqwest::Client, download: &Download) -> Result<(
 
     let status = resp.status();
     if reqwest::StatusCode::NOT_MODIFIED == status {
-        writeln!(io::stderr(), "already up to date.")?;
+        writeln!(io::stderr(), "{} already up to date.", download.from)?;
         return Ok(());
     } else if !status.is_success() {
         bail!(
@@ -104,7 +108,7 @@ async fn fetch_single(client: &reqwest::Client, download: &Download) -> Result<(
         filetime::set_file_times(&download.to, file_time, file_time)?;
     }
 
-    writeln!(io::stderr(), "complete.")?;
+    writeln!(io::stderr(), "{} complete.", download.from)?;
 
     Ok(())
 }

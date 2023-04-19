@@ -65,7 +65,7 @@ pub struct Listing {
     pub name: String,
 }
 
-pub fn download_files<P: AsRef<Path>>(
+pub async fn download_files<P: AsRef<Path>>(
     client: &Client,
     lists_dir: P,
     releases: &[Release],
@@ -93,7 +93,9 @@ pub fn download_files<P: AsRef<Path>>(
         })
         .collect();
 
-    fetch::fetch(client, &downloads).with_context(|| anyhow!("downloading listed files"))?;
+    fetch::fetch(client, downloads)
+        .await
+        .with_context(|| anyhow!("downloading listed files"))?;
 
     for list in lists {
         store_list_item(&list, &temp_dir, &lists_dir)?;
