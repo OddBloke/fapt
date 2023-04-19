@@ -186,11 +186,10 @@ impl RequestedReleases {
                     let mut detatched_signature = dest.as_os_str().to_os_string();
                     detatched_signature.push(".gpg");
 
-                    fetch(
+                    let release_future = tokio::spawn(fetch(
                         client.clone(),
                         vec![Download::from_to(release.dists()?.join("Release")?, &dest)],
-                    )
-                    .await?;
+                    ));
 
                     if !release.untrusted {
                         fetch(
@@ -201,8 +200,16 @@ impl RequestedReleases {
                             )],
                         )
                         .await?;
+                        release_future
+                            .await
+                            .with_context(|| anyhow!("spawning thread"))?
+                            .with_context(|| anyhow!("downloading Release file"))?;
                         gpg.verify_detached(&dest, detatched_signature, verified)
                     } else {
+                        release_future
+                            .await
+                            .with_context(|| anyhow!("spawning thread"))?
+                            .with_context(|| anyhow!("downloading Release file"))?;
                         Ok(())
                     }
                 }
