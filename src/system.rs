@@ -35,7 +35,7 @@ pub struct System {
     sources_entries: Vec<Entry>,
     arches: Vec<String>,
     keyring: Keyring,
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 /// A _Listing_ that has been downloaded, and the _Release_ it came from.
@@ -61,11 +61,11 @@ impl System {
         fs::create_dir_all(lists_dir.as_ref())?;
 
         let client = if let Ok(proxy) = env::var("http_proxy") {
-            reqwest::blocking::Client::builder()
+            reqwest::Client::builder()
                 .proxy(reqwest::Proxy::http(&proxy)?)
                 .build()?
         } else {
-            reqwest::blocking::Client::new()
+            reqwest::Client::new()
         };
 
         Ok(System {
