@@ -17,6 +17,7 @@ use gpgrv::Keyring;
 use insideout::InsideOut;
 use reqwest;
 use reqwest::Url;
+use tokio::task::JoinSet;
 
 use crate::checksum::Hashes;
 use crate::fetch::fetch;
@@ -163,27 +164,23 @@ impl RequestedReleases {
         let lists_dir = lists_dir.as_ref();
 
         let mut gpg = GpgClient::new(keyring);
-        let mut handles = Vec::with_capacity(self.releases.len());
+        let mut set = JoinSet::new();
 
         for &(ref release, _) in &self.releases {
             let dest: PathBuf = release.download_path(lists_dir);
 
-            handles.push((
-                release,
-                dest.clone(),
-                tokio::spawn(fetch(
-                    client.clone(),
-                    vec![Download::from_to(
-                        release.dists()?.join("InRelease")?,
-                        &dest,
-                    )],
-                )),
-            ));
+            let downloads = vec![Download::from_to(
+                release.dists()?.join("InRelease")?,
+                &dest,
+            )];
+            let (client, release, dest) = (client.clone(), release.clone(), dest.clone());
+            set.spawn(async { (fetch(client, downloads).await, release, dest) });
         }
 
-        for (release, dest, handle) in handles {
+        while let Some(res) = set.join_next().await {
+            let (res, release, dest) = res?;
             let verified = release.verified_path(lists_dir);
-            match handle.await {
+            match res {
                 Ok(_) => gpg.read_clearsigned(&dest, &verified, !release.untrusted),
                 Err(_) => {
                     let mut detatched_signature = dest.as_os_str().to_os_string();
