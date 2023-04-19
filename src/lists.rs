@@ -93,7 +93,7 @@ pub async fn download_files<P: AsRef<Path>>(
         })
         .collect();
 
-    fetch::fetch(client, downloads)
+    fetch::fetch(client.clone(), downloads)
         .await
         .with_context(|| anyhow!("downloading listed files"))?;
 

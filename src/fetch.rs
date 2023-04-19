@@ -29,7 +29,7 @@ impl Download {
     }
 }
 
-pub async fn fetch(client: &reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
+pub async fn fetch(client: reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
     // TODO: reqwest parallel API, when it's stable
 
     let mut handles = Vec::with_capacity(downloads.len());

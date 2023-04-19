@@ -171,13 +171,13 @@ impl RequestedReleases {
             handles.push((
                 release,
                 dest.clone(),
-                fetch(
-                    client,
+                tokio::spawn(fetch(
+                    client.clone(),
                     vec![Download::from_to(
                         release.dists()?.join("InRelease")?,
                         &dest,
                     )],
-                ),
+                )),
             ));
         }
 
@@ -190,14 +190,14 @@ impl RequestedReleases {
                     detatched_signature.push(".gpg");
 
                     fetch(
-                        client,
+                        client.clone(),
                         vec![Download::from_to(release.dists()?.join("Release")?, &dest)],
                     )
                     .await?;
 
                     if !release.untrusted {
                         fetch(
-                            client,
+                            client.clone(),
                             vec![Download::from_to(
                                 release.dists()?.join("Release.gpg")?,
                                 &detatched_signature,
