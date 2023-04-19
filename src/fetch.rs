@@ -39,19 +39,19 @@ pub async fn fetch(client: &reqwest::Client, downloads: Vec<Download>) -> Result
         handles.push((
             download.from.clone(),
             download.to.clone(),
-            fetch_single(client, download),
+            tokio::spawn(fetch_single(client.clone(), download)),
         ));
     }
 
     for (from, to, handle) in handles {
         handle
-            .await
+            .await?
             .with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
     }
     Ok(())
 }
 
-async fn fetch_single(client: &reqwest::Client, download: Download) -> Result<(), Error> {
+async fn fetch_single(client: reqwest::Client, download: Download) -> Result<(), Error> {
     let mut req = client.get(download.from.as_ref());
 
     if download.to.exists() {
