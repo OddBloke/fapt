@@ -27,7 +27,7 @@ service = "github"
 repository = "FauxFaux/fapt"
 
 [features]
-binaries = ["clap"]
+binaries = ["clap", "tokio/full"]
 
 [dependencies]
 anyhow = "1"
