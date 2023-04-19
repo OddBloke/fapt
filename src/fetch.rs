@@ -14,6 +14,7 @@ use filetime;
 use reqwest;
 use reqwest::header;
 use tempfile_fast::PersistableTempFile;
+use tokio::task::JoinSet;
 
 pub struct Download {
     from: reqwest::Url,
@@ -32,21 +33,17 @@ impl Download {
 pub async fn fetch(client: reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
     // TODO: reqwest parallel API, when it's stable
 
-    let mut handles = Vec::with_capacity(downloads.len());
+    let mut set = JoinSet::new();
     for download in downloads {
         writeln!(io::stderr(), "Downloading: {}", download.from)?;
         io::stderr().flush()?;
-        handles.push((
-            download.from.clone(),
-            download.to.clone(),
-            tokio::spawn(fetch_single(client.clone(), download)),
-        ));
+        let (client, from, to) = (client.clone(), download.from.clone(), download.to.clone());
+        set.spawn(async { (fetch_single(client, download).await, from, to) });
     }
 
-    for (from, to, handle) in handles {
-        handle
-            .await?
-            .with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
+    while let Some(res) = set.join_next().await {
+        let (res, from, to) = res?;
+        res.with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
     }
     Ok(())
 }
