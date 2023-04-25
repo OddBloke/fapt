@@ -31,23 +31,32 @@ impl Download {
     }
 }
 
-pub async fn fetch(client: reqwest::Client, downloads: Vec<Download>) -> Result<(), Error> {
+pub async fn fetch(client: reqwest::Client, downloads: Vec<Download>) -> Result<Vec<bool>, Error> {
     let mut set = JoinSet::new();
-    for download in downloads {
+    let mut updated = Vec::with_capacity(downloads.len());
+
+    for (idx, download) in downloads.into_iter().enumerate() {
+        updated.push(false);
         writeln!(io::stderr(), "Downloading: {}", download.from)?;
         io::stderr().flush()?;
-        let (client, from, to) = (client.clone(), download.from.clone(), download.to.clone());
-        set.spawn(async { (fetch_single(client, download).await, from, to) });
+        let (client, from, to, idx) = (
+            client.clone(),
+            download.from.clone(),
+            download.to.clone(),
+            idx.clone(),
+        );
+        set.spawn(async move { (fetch_single(client, download).await, idx, from, to) });
     }
 
     while let Some(res) = set.join_next().await {
-        let (res, from, to) = res?;
-        res.with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
+        let (res, idx, from, to) = res?;
+        let was_updated = res.with_context(|| anyhow!("downloading {} to {:?}", from, to))?;
+        updated[idx] = was_updated;
     }
-    Ok(())
+    Ok(updated)
 }
 
-async fn fetch_single(client: reqwest::Client, download: Download) -> Result<(), Error> {
+async fn fetch_single(client: reqwest::Client, download: Download) -> Result<bool, Error> {
     let mut req = client.get(download.from.as_ref());
 
     if download.to.exists() {
@@ -63,7 +72,7 @@ async fn fetch_single(client: reqwest::Client, download: Download) -> Result<(),
     let status = resp.status();
     if reqwest::StatusCode::NOT_MODIFIED == status {
         writeln!(io::stderr(), "{} already up to date.", download.from)?;
-        return Ok(());
+        return Ok(false);
     } else if !status.is_success() {
         bail!(
             "couldn't download {}: server responded with {:?}",
@@ -106,5 +115,5 @@ async fn fetch_single(client: reqwest::Client, download: Download) -> Result<(),
 
     writeln!(io::stderr(), "{} complete.", download.from)?;
 
-    Ok(())
+    Ok(true)
 }

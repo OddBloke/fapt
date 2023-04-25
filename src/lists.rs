@@ -69,7 +69,7 @@ pub async fn download_files<P: AsRef<Path>>(
     client: &Client,
     lists_dir: P,
     releases: &[Release],
-) -> Result<(), Error> {
+) -> Result<usize, Error> {
     let lists = extract_downloads(releases).with_context(|| anyhow!("filtering releases"))?;
 
     let temp_dir = tempfile::Builder::new()
@@ -93,7 +93,7 @@ pub async fn download_files<P: AsRef<Path>>(
         })
         .collect();
 
-    fetch::fetch(client.clone(), downloads)
+    let updated = fetch::fetch(client.clone(), downloads)
         .await
         .with_context(|| anyhow!("downloading listed files"))?;
 
@@ -101,7 +101,11 @@ pub async fn download_files<P: AsRef<Path>>(
         store_list_item(&list, &temp_dir, &lists_dir)?;
     }
 
-    Ok(())
+    Ok(updated
+        .iter()
+        .filter(|was_updated| **was_updated)
+        .collect::<Vec<_>>()
+        .len())
 }
 
 fn store_list_item<P: AsRef<Path>, Q: AsRef<Path>>(

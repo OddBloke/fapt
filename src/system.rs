@@ -110,7 +110,7 @@ impl System {
     }
 
     /// Download any necessary _Listings_ for the configured _Sources Entries_.
-    pub async fn update(&self) -> Result<(), Error> {
+    pub async fn update(&self) -> Result<bool, Error> {
         let requested =
             release::RequestedReleases::from_sources_lists(&self.sources_entries, &self.arches)
                 .with_context(|| anyhow!("parsing sources entries"))?;
@@ -124,11 +124,11 @@ impl System {
             .parse(&self.lists_dir)
             .with_context(|| anyhow!("parsing releases"))?;
 
-        lists::download_files(&self.client, &self.lists_dir, &releases)
+        let updated_count = lists::download_files(&self.client, &self.lists_dir, &releases)
             .await
             .with_context(|| anyhow!("downloading release content"))?;
 
-        Ok(())
+        Ok(updated_count != 0)
     }
 
     /// Explain the configured _Listings_.
