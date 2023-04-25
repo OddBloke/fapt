@@ -4,7 +4,8 @@ use anyhow::anyhow;
 use fapt::commands;
 use fapt::system;
 
-fn main() -> Result<(), anyhow::Error> {
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
     let mut fapt = system::System::cache_only()?;
     commands::add_sources_entries_from_str(
         &mut fapt,
@@ -12,7 +13,7 @@ fn main() -> Result<(), anyhow::Error> {
     )
     .expect("parsing static data");
     commands::add_builtin_keys(&mut fapt);
-    fapt.update()?;
+    fapt.update().await?;
 
     let mut package_version_files = HashMap::with_capacity(1024);
 

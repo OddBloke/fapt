@@ -1,11 +1,12 @@
 //! Lower level operations on a [crate::system::System].
 //!
 //! ```
-//! # fn main() -> Result<(), anyhow::Error> {
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), anyhow::Error> {
 //! # use fapt::system::System;
 //! let fapt = System::cache_only()?;
 //! // ...
-//! fapt.update()?;
+//! fapt.update().await?;
 //! # Ok(())
 //! # }
 //! ```

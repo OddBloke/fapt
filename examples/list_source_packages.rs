@@ -4,7 +4,8 @@ use fapt::commands;
 use fapt::rfc822::RfcMapExt;
 use fapt::system::System;
 
-fn main() -> Result<(), anyhow::Error> {
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     let src_line = if args.is_empty() {
@@ -16,7 +17,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut fapt = System::cache_only()?;
     commands::add_sources_entries_from_str(&mut fapt, src_line)?;
     commands::add_builtin_keys(&mut fapt);
-    fapt.update()?;
+    fapt.update().await?;
 
     for section in commands::all_blocks(&fapt)? {
         let section = section?;

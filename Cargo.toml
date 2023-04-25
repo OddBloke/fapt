@@ -29,6 +29,9 @@ repository = "FauxFaux/fapt"
 [features]
 binaries = ["clap", "tokio/full"]
 
+[dev-dependencies]
+tokio = { version = "1", features = [ "full" ] }
+
 [dependencies]
 anyhow = "1"
 deb-version = "0.1"

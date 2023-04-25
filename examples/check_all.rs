@@ -3,7 +3,8 @@ use fapt::commands;
 use fapt::parse::Package;
 use fapt::system::System;
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let mut fapt = System::cache_only()?;
     commands::add_builtin_keys(&mut fapt);
     commands::add_sources_entries_from_str(
@@ -27,7 +28,7 @@ debs http://archive.ubuntu.com/ubuntu/  trusty-updates   main universe multivers
 
     "#,
     )?;
-    fapt.update()?;
+    fapt.update().await?;
 
     let mut good: u64 = 0;
     let mut done: u64 = 0;
