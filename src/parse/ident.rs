@@ -6,9 +6,9 @@ use nom::Err;
 
 /// A user identity, e.g. `John Smith <john@smi.th>`
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Identity {
-    pub name: String,
-    pub email: String,
+pub enum Identity {
+    Parsed { name: String, email: String },
+    Unparsed(String),
 }
 
 named!(ident<CompleteStr, Result<Identity, Error>>,
@@ -16,7 +16,7 @@ named!(ident<CompleteStr, Result<Identity, Error>>,
         name: take_until_and_consume_s!(" <") >>
         email: take_until_and_consume_s!(">") >>
         ( process_escapes(name.0.trim()).map(|name|
-            Identity {
+            Identity::Parsed {
                 name: name.to_string(),
                 email: email.0.to_string(),
             })
@@ -39,11 +39,10 @@ named!(parse<CompleteStr, Vec<Result<Identity, Error>>>,
 pub fn read(from: &str) -> Result<Vec<Identity>, Error> {
     match parse(CompleteStr(from)) {
         Ok((CompleteStr(""), vec)) => vec.into_iter().collect::<Result<Vec<Identity>, Error>>(),
-        Ok((tailing, _)) => bail!(
-            "parsing {:?} finished early, trailing garbage: {:?}",
-            from,
-            tailing
-        ),
+        Ok((tailing, mut vec)) => {
+            vec.push(Ok(Identity::Unparsed(tailing.to_string())));
+            vec.into_iter().collect::<Result<Vec<Identity>, Error>>()
+        }
         Err(Err::Incomplete(_)) => unreachable!(),
         other => bail!("parsing {:?} failed: {:?}", from, other),
     }
@@ -102,11 +101,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                Identity {
+                Identity::Parsed {
                     name: "foo".to_string(),
                     email: "bar".to_string(),
                 },
-                Identity {
+                Identity::Parsed {
                     name: "baz".to_string(),
                     email: "quux".to_string(),
                 },
@@ -125,5 +124,21 @@ mod tests {
     fn trailing() {
         use super::read;
         assert_eq!(1, read("foo <bar>,").unwrap().len())
+    }
+
+    #[test]
+    fn garbage() {
+        use super::read;
+        use super::Identity;
+        assert_eq!(
+            vec![
+                Identity::Parsed {
+                    name: "foo".to_string(),
+                    email: "bar".to_string(),
+                },
+                Identity::Unparsed("<@lolol>".to_string()),
+            ],
+            read("foo <bar>, <@lolol>").unwrap()
+        );
     }
 }
