@@ -208,6 +208,7 @@ impl NamedBlock {
 
     pub fn as_pkg(&self) -> Result<Package, Error> {
         Package::parse(&mut self.as_map()?)
+            .with_context(|| anyhow!("parsing package block in {}", self.locality))
     }
 
     pub fn into_string(self) -> String {
