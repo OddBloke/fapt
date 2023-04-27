@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use anyhow::anyhow;
 use anyhow::bail;
+use anyhow::ensure;
 use anyhow::Context;
 use anyhow::Error;
 use insideout::InsideOut;
@@ -26,7 +27,7 @@ pub enum PackageType {
 pub struct Package {
     pub name: String,
     pub version: String,
-    pub priority: Priority,
+    priority: Option<Priority>,
     pub arches: arch::Arches,
     pub section: String,
 
@@ -103,6 +104,24 @@ impl Package {
             _ => None,
         }
     }
+
+    pub fn priority(&mut self) -> Result<Priority, Error> {
+        if self.priority.is_none() {
+            self.priority = Some(
+                self.unparsed
+                    .remove("Priority")
+                    .map(|lines| {
+                        ensure!(1 == lines.len(), "{:?} isn't exactly one line", lines);
+                        Ok(lines[0].to_owned())
+                    })
+                    .inside_out()?
+                    .map(|p| parse_priority(&p))
+                    .inside_out()?
+                    .unwrap_or(Priority::Unknown),
+            );
+        }
+        Ok(self.priority.unwrap())
+    }
 }
 
 fn parse_pkg(map: &mut rfc822::Map, style: PackageType) -> Result<Package, Error> {
@@ -125,12 +144,7 @@ fn parse_pkg(map: &mut rfc822::Map, style: PackageType) -> Result<Package, Error
     Ok(Package {
         name: map.remove_value("Package").one_line_req()?.to_string(),
         version: map.remove_value("Version").one_line_req()?.to_string(),
-        priority: map
-            .remove_value("Priority")
-            .one_line()?
-            .map(|p| parse_priority(p))
-            .inside_out()?
-            .unwrap_or(Priority::Unknown),
+        priority: None,
         arches,
         section: map.remove_value("Section").one_line_req()?.to_string(),
         maintainer: super::ident::read(map.remove_value("Maintainer").one_line_req()?)?,
