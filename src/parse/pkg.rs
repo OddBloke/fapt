@@ -29,6 +29,7 @@ pub struct Package {
     pub version: String,
     priority: Option<Priority>,
     pub arches: arch::Arches,
+    section: Option<String>,
 
     pub maintainer: Vec<ident::Identity>,
     pub original_maintainer: Vec<ident::Identity>,
@@ -122,15 +123,18 @@ impl Package {
         Ok(self.priority.unwrap())
     }
 
-    pub fn section(&mut self) -> Result<Option<String>, Error> {
-        Ok(self
-            .unparsed
-            .remove("Section")
-            .map(|lines| {
-                ensure!(1 == lines.len(), "{:?} isn't exactly one line", lines);
-                Ok(lines[0].to_owned())
-            })
-            .inside_out()?)
+    pub fn section(&mut self) -> Result<String, Error> {
+        if self.section.is_none() {
+            self.section = self
+                .unparsed
+                .remove("Section")
+                .map(|lines| {
+                    ensure!(1 == lines.len(), "{:?} isn't exactly one line", lines);
+                    Ok(lines[0].to_owned())
+                })
+                .inside_out()?;
+        }
+        Ok(self.section.to_owned().unwrap())
     }
 }
 
@@ -156,6 +160,7 @@ fn parse_pkg(map: &mut rfc822::Map, style: PackageType) -> Result<Package, Error
         version: map.remove_value("Version").one_line_req()?.to_string(),
         priority: None,
         arches,
+        section: None,
         maintainer: super::ident::read(map.remove_value("Maintainer").one_line_req()?)?,
         original_maintainer,
         homepage: map.remove_value("Homepage").one_line_owned()?,
